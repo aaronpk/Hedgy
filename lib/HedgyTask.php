@@ -180,6 +180,7 @@ class HedgyTask {
         $reply->in_reply_to_id = $drink->id;
         $reply->content = $sentence;
         $reply->url = $location;
+        $reply->published = db\now();
         $reply->date_created = db\now();
         $reply->save();
       }
