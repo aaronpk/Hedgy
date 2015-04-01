@@ -1,7 +1,7 @@
 <?php
 declare(ticks=1);
 
-chdir(__DIR__'/..');
+chdir(__DIR__.'/..');
 
 $mode = 'run';
 if(array_key_exists(1, $argv) && $argv[1] == 'once')
@@ -24,9 +24,9 @@ define('PDO_SUPPORT_DELAYED', TRUE);
 
 require 'vendor/autoload.php';
 
-// require 'lib/DeferredTask.php';
-// require 'lib/PushTask.php';
-// require 'lib/HedgyTask.php';
+require 'lib/DeferredTask.php';
+require 'lib/PushTask.php';
+require 'lib/HedgyTask.php';
 
 if($mode == 'once') {
   DeferredTask::run_once();
