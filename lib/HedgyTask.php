@@ -87,6 +87,10 @@ class HedgyTask {
     $set = ORM::for_table('entries')->where('user_id', $user_id)->where('processed', 0)->find_result_set();
     $set->set('processed', 1);
     $set->save();
+
+    $user = db\get_by_id('users', $user_id);
+    $user->last_fetched = db\now();
+    $user->save();
   }
 
   private static function fetch_feed($user_id) {
