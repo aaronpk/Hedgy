@@ -24,10 +24,6 @@ define('PDO_SUPPORT_DELAYED', TRUE);
 
 require 'vendor/autoload.php';
 
-require 'lib/DeferredTask.php';
-require 'lib/PushTask.php';
-require 'lib/HedgyTask.php';
-
 if($mode == 'once') {
   DeferredTask::run_once();
 } else {

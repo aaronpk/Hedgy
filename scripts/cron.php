@@ -2,8 +2,6 @@
 chdir(__DIR__.'/..');
 require 'vendor/autoload.php';
 
-require 'lib/DeferredTask.php';
-
 $users = ORM::for_table('users')->find_many();
 foreach($users as $user) {
   if($user->last_fetched == '' || strtotime($user->last_fetched) < time()-300) {
