@@ -3,6 +3,10 @@ use BarnabyWalters\Mf2;
 
 class HedgyTask {
 
+  public function perform() {
+    self::process_user($this->args['user_id']);
+  }
+
   private static function _is_alcohol($string) {
     if($string == '') return false;
 
@@ -15,6 +19,7 @@ class HedgyTask {
       'prosecco',
       'cocktail',
       'beer',
+      'cider',
       'margarita',
     ];
     foreach($match as $m) {
@@ -40,6 +45,11 @@ class HedgyTask {
   public static function process_user($user_id) {
 
     $entries = self::fetch_feed($user_id);
+
+    if(k($entries, 'error')) {
+      echo "Error: " . $entries['error'] . "\n";
+      return;
+    }
 
     // Add any new entries to the database
     foreach($entries as $e) {
@@ -130,6 +140,43 @@ class HedgyTask {
       ->limit(30)
       ->find_many();
 
+    // In reverse chronological order, check the drinks to see if there are three drinks in under 1.5 hrs (45 minutes per drink).
+    // If this matches, this takes priority over checking for food posts, and replies immediately
+
+    $latest_drink = false;
+    $third_drink = false;
+    $drinks_found = 0;
+    foreach($entries as $entry) {
+      if($entry->is_alcohol) {
+        $drinks_found++;
+        if($drinks_found == 1)
+          $latest_drink = $entry;
+        if($drinks_found == 3)
+          $third_drink = $entry;
+      }
+    }
+    if($latest_drink && $third_drink) {
+      // drink 1 at t=0, drink 2 at t=45, drink 3 at t=90
+      $threshold = 60 * 60 * 1.5; // 1.5 hours
+
+      $diff_seconds = strtotime($latest_drink->published) - strtotime($third_drink->published);
+      if($diff_seconds < $threshold) {
+        echo "Latest drink: " . $latest_drink->published . "\n";
+        echo "Third drink: " . $third_drink->published . "\n";
+
+        $replies = [];
+        $replies[] = 'Three drinks in ' . round($diff_seconds / 60) . ' minutes! Slow down!';
+        $replies[] = 'That last ' . strtolower(self::remove_article($drink->drink)) . ' should keep you going a while, try not to have another drink for a while!';
+
+        $sentence = '@' . friendly_url($user->url) . ' ' . self::choose($replies);
+        echo "posting: '$sentence'\n";
+        self::post_reply($user, $drink, $sentence);
+
+        return;
+      }
+    }
+
+
     // In reverse chronological order, count the number of alcoholic drinks until a food post is encountered
     $last_food = false;
     $num_drinks = 0;
@@ -171,27 +218,30 @@ class HedgyTask {
 
         // Force this reply on the 4th drink
         if($num_drinks == 4)
-          $replies = ['Four drinks since your last meal! You should eat something!'];
+          $replies = ['Four drinks since your last meal! You should definitely get some food!'];
 
         $sentence = '@' . friendly_url($user->url) . ' ' . self::choose($replies);
         echo "posting: '$sentence'\n";
-
-        $post = self::micropub_post([
-          'in-reply-to' => $drink->url,
-          'content' => $sentence
-        ]);
-        $location = $post['location'];
-        $reply = db\create('replies');
-        $reply->user_id = $user->id;
-        $reply->in_reply_to_id = $drink->id;
-        $reply->content = $sentence;
-        $reply->url = $location;
-        $reply->published = db\now();
-        $reply->date_created = db\now();
-        $reply->save();
+        self::post_reply($user, $drink, $sentence);
       }
 
     }
+  }
+
+  private static function post_reply(&$user, &$drink, $sentence) {
+    $post = self::micropub_post([
+      'in-reply-to' => $drink->url,
+      'content' => $sentence
+    ]);
+    $location = $post['location'];
+    $reply = db\create('replies');
+    $reply->user_id = $user->id;
+    $reply->in_reply_to_id = $drink->id;
+    $reply->content = $sentence;
+    $reply->url = $location;
+    $reply->published = db\now();
+    $reply->date_created = db\now();
+    $reply->save();
   }
 
   private static function choose($arr) {
