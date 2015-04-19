@@ -56,8 +56,12 @@ class HedgyTask {
       if(Mf2\hasProp($e, 'url')) {
         if(Mf2\hasProp($e, 'p3k-food') || Mf2\hasProp($e, 'p3k-drink')) {
           $published = Mf2\getDateTimeProperty('published', $e, true);
+          $published_offset = 0;
           if($published) {
-            $published = date('Y-m-d H:i:s', strtotime($published));
+            $date = new DateTime($published);
+            $utc_date = date('Y-m-d H:i:s', strtotime($published));
+          } else {
+            $date = new DateTime();
           }
 
           $type = Mf2\hasProp($e, 'p3k-food') ? 'food' : 'drink';
@@ -68,7 +72,8 @@ class HedgyTask {
             'user_id' => $user_id,
             'url' => Mf2\getPlaintext($e, 'url')
           ], [
-            'published' => $published,
+            'published' => $utc_date,
+            'published_offset' => $date->getOffset(),
             'content' => Mf2\getPlaintext($e, 'content'),
             'food' => $food,
             'drink' => $drink,
@@ -229,7 +234,17 @@ class HedgyTask {
   }
 
   private static function post_reply(&$user, &$drink, $sentence) {
+    $tz_offset = $drink->published_offset;
+    $date = new DateTime();
+    if($tz_offset > 0)
+      $date->add(new DateInterval('PT'.$tz_offset.'S'));
+    elseif($tz_offset < 0)
+      $date->sub(new DateInterval('PT'.abs($tz_offset).'S'));
+    $tz = ($tz_offset < 0 ? '-' : '+') . sprintf('%02d:%02d', abs($tz_offset/60/60), ($tz_offset/60)%60);
+    $published = $date->format('Y-m-d\TH:i:s') . $tz;
+
     $post = self::micropub_post([
+      'published' => $published,
       'in-reply-to' => $drink->url,
       'content' => $sentence
     ]);
