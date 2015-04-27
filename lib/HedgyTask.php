@@ -207,7 +207,7 @@ class HedgyTask {
       echo "Last food was " . $diff_seconds . " seconds since the latest drink\n";
       echo $relative_date . "\n";
 
-      $threshold = 3600 * 2;
+      $threshold = 3600 * 4;
 
       if(strtotime($last_food->published) < strtotime($drink->published) - $threshold) {
         echo "Sending a reply!\n";
